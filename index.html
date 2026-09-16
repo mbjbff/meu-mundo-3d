@@ -4,19 +4,80 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>Meu Mundo 3D</title>
+
 <style>
-html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#87ceeb;font-family:Arial,sans-serif}
-#game{position:fixed;inset:0}
-#hint{position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:5;color:white;background:#0008;padding:8px 12px;border-radius:12px;font-size:13px}
-#joystick{position:fixed;left:22px;bottom:28px;width:125px;height:125px;border-radius:50%;background:#0003;border:2px solid #fff6;z-index:10;touch-action:none}
-#stick{position:absolute;left:37px;top:37px;width:51px;height:51px;border-radius:50%;background:#fff9}
-#jump{position:fixed;right:25px;bottom:35px;width:76px;height:76px;border:0;border-radius:50%;background:#fff9;font-weight:bold;z-index:10;touch-action:none}
+html,body{
+  margin:0;
+  width:100%;
+  height:100%;
+  overflow:hidden;
+  background:#87ceeb;
+  font-family:Arial,sans-serif;
+}
+
+#game{
+  position:fixed;
+  inset:0;
+}
+
+#hint{
+  position:fixed;
+  top:10px;
+  left:50%;
+  transform:translateX(-50%);
+  z-index:5;
+  color:white;
+  background:#0008;
+  padding:8px 12px;
+  border-radius:12px;
+  pointer-events:none;
+}
+
+#joystick{
+  position:absolute;
+  left:25px;
+  bottom:28px;
+  width:125px;
+  height:125px;
+  border-radius:50%;
+  background:#0005;
+  z-index:10;
+}
+
+#stick{
+  position:absolute;
+  left:37px;
+  top:37px;
+  width:51px;
+  height:51px;
+  border-radius:50%;
+  background:#fff9;
+}
+
+#jump{
+  position:fixed;
+  right:25px;
+  bottom:35px;
+  width:75px;
+  height:75px;
+  border-radius:50%;
+  background:#fff9;
+  border:0;
+  font-weight:bold;
+  z-index:10;
+}
 </style>
 </head>
+
 <body>
+
 <div id="game"></div>
 <div id="hint">Carregando mundo 3D...</div>
-<div id="joystick"><div id="stick"></div></div>
+
+<div id="joystick">
+  <div id="stick"></div>
+</div>
+
 <button id="jump">PULAR</button>
 
 <script type="importmap">
@@ -24,120 +85,589 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#87ceeb;fon
   "imports":{
     "three":"https://cdn.jsdelivr.net/npm/three@0.176.0/build/three.module.js",
     "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.176.0/examples/jsm/",
-    "@pixiv/three-vrm":"https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3.4.2/lib/three-vrm.module.js"
+    "@pixiv/three-vrm":"https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3.12.2/lib/three-vrm.module.js"
   }
 }
 </script>
 
 <script type="module">
+
 import * as THREE from "three";
 import {GLTFLoader} from "three/addons/loaders/GLTFLoader.js";
-import {VRMLoaderPlugin, VRMUtils} from "@pixiv/three-vrm";
+import {VRMLoaderPlugin,VRMUtils} from "@pixiv/three-vrm";
 
 const scene=new THREE.Scene();
+
 scene.background=new THREE.Color(0x87ceeb);
 scene.fog=new THREE.Fog(0x87ceeb,35,90);
 
-const camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,.05,200);
-const renderer=new THREE.WebGLRenderer({antialias:true});
+const camera=new THREE.PerspectiveCamera(
+  65,
+  innerWidth/innerHeight,
+  0.05,
+  200
+);
+
+const renderer=new THREE.WebGLRenderer({
+  antialias:true
+});
+
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));
 renderer.setSize(innerWidth,innerHeight);
 renderer.shadowMap.enabled=true;
+
 document.getElementById("game").appendChild(renderer.domElement);
 
-scene.add(new THREE.HemisphereLight(0xbfe9ff,0x6b5b3e,2.2));
-const sun=new THREE.DirectionalLight(0xffffff,3);
-sun.position.set(20,35,15); sun.castShadow=true; scene.add(sun);
+
+/* LUZ */
+
+scene.add(
+  new THREE.HemisphereLight(
+    0xffffff,
+    0x6b5b3e,
+    2.2
+  )
+);
+
+const sun=new THREE.DirectionalLight(0xffffff,2);
+
+sun.position.set(20,35,15);
+sun.castShadow=true;
+
+scene.add(sun);
+
+
+/* TERRENO */
 
 const blockGeo=new THREE.BoxGeometry(1,1,1);
+
 function block(x,y,z,color){
-  const m=new THREE.MeshStandardMaterial({color});
-  const b=new THREE.Mesh(blockGeo,m);
-  b.position.set(x,y,z); b.castShadow=true; b.receiveShadow=true; scene.add(b);
+
+  const mat=new THREE.MeshStandardMaterial({
+    color:color
+  });
+
+  const b=new THREE.Mesh(blockGeo,mat);
+
+  b.position.set(x,y,z);
+
+  b.castShadow=true;
+  b.receiveShadow=true;
+
+  scene.add(b);
 }
-const colors=[0x58a83b,0x65b83f,0x4b9634];
-for(let x=-18;x<=18;x++) for(let z=-18;z<=18;z++){
-  block(x,-.5,z,colors[(x*x+z*z)%3]);
-}
-for(let x=-10;x<=10;x+=2) for(let z=-10;z<=10;z+=2){
-  if(Math.random()>.48){
-    block(x,0.5,z,0x8b5a2b); block(x,1.5,z,0x8b5a2b);
-    block(x,2.5,z,0x3d8f32); block(x+1,2.5,z,0x3d8f32);
-    block(x,2.5,z+1,0x3d8f32); block(x+1,2.5,z+1,0x3d8f32);
+
+
+/* CORES */
+
+const colors=[
+  0x5a8a3b,
+  0x6b5a3b,
+  0x4b9634
+];
+
+
+/* MUNDO */
+
+for(let x=-18;x<=18;x++){
+  for(let z=-18;z<=18;z++){
+
+    block(
+      x,
+      -0.5,
+      z,
+      colors[(x*x+z*z)%3]
+    );
   }
 }
-// Small village
-for(let x=-7;x<=-3;x++) for(let z=6;z<=10;z++) block(x,.5,z,0xcaa46a);
-for(let x=-7;x<=-3;x++) { block(x,3.5,6,0x9b3f32); block(x,3.5,10,0x9b3f32); }
-for(let z=6;z<=10;z++) { block(-7,3.5,z,0x9b3f32); block(-3,3.5,z,0x9b3f32); }
 
-let vrm=null, root=new THREE.Group();
+
+/* PEDRAS */
+
+for(let x=-10;x<=10;x+=2){
+  for(let z=-10;z<=10;z+=2){
+
+    if(Math.random()>0.48){
+
+      block(x,0.5,z,0x8b5a2b);
+      block(x,1.5,z,0x8b5a2b);
+
+      block(x+2.5,0,z,0x3d8f32);
+      block(x+2.5,1,z,0x3d8f32);
+
+      block(x-2.5,1,z,0x3d8f32);
+      block(x+1,2.5,z,0x3d8f32);
+    }
+  }
+}
+
+
+/* PEQUENA VILA */
+
+for(let x=-7;x<=-3;x++){
+
+  for(let z=6;z<=10;z++){
+    block(x,0.5,z,0xcaa46a);
+  }
+}
+
+for(let x=-7;x<=-3;x++){
+
+  block(x,3.5,6,0x9b3f32);
+  block(x,3.5,10,0x9b3f32);
+}
+
+for(let z=6;z<=10;z++){
+
+  block(-7,3.5,z,0x9b3f32);
+  block(-3,3.5,z,0x9b3f32);
+}
+
+
+/* PERSONAGEM */
+
+let vrm=null;
+let root=new THREE.Group();
+
 scene.add(root);
 
 const loader=new GLTFLoader();
-loader.register(parser=>new VRMLoaderPlugin(parser));
-loader.load("./character.vrm",gltf=>{
-  vrm=gltf.userData.vrm;
-  VRMUtils.removeUnnecessaryVertices(gltf.scene);
-  VRMUtils.combineSkeletons(gltf.scene);
-  vrm.scene.rotation.y=Math.PI;
-  vrm.scene.scale.setScalar(1.15);
-  root.add(vrm.scene);
-  document.getElementById("hint").textContent="Mundo carregado • use o controle para andar";
-  setTimeout(()=>document.getElementById("hint").style.display="none",2200);
-},undefined,e=>{
-  console.error(e);
-  document.getElementById("hint").textContent="Erro ao carregar o personagem VRM.";
+
+loader.register(
+  parser=>new VRMLoaderPlugin(parser)
+);
+
+loader.load(
+  "./character.vrm",
+  gltf=>{
+
+    vrm=gltf.userData.vrm;
+
+    VRMUtils.removeUnnecessaryVertices(gltf.scene);
+    VRMUtils.combineSkeletons(gltf.scene);
+
+    vrm.scene.rotation.y=Math.PI;
+    vrm.scene.scale.setScalar(1.15);
+
+    root.add(vrm.scene);
+
+    document.getElementById("hint").textContent=
+      "Mundo carregado • use o controle para andar";
+
+    setTimeout(()=>{
+      document.getElementById("hint").style.display="none";
+    },2200);
+
+  },
+  undefined,
+  e=>{
+
+    console.error(e);
+
+    document.getElementById("hint").textContent=
+      "Erro ao carregar o personagem VRM.";
+
+  }
+);
+
+
+/* MOVIMENTO */
+
+const player={
+  x:0,
+  y:0,
+  z:0,
+  vy:0,
+  onGround:true
+};
+
+const keys={};
+
+addEventListener("keydown",e=>{
+  keys[e.key.toLowerCase()]=true;
 });
 
-const player={x:0,y:0,z:0,vy:0,onGround:true};
-const keys={};
-addEventListener("keydown",e=>keys[e.key.toLowerCase()]=true);
-addEventListener("keyup",e=>keys[e.key.toLowerCase()]=false);
+addEventListener("keyup",e=>{
+  keys[e.key.toLowerCase()]=false;
+});
 
-let joyX=0,joyY=0;
-const joy=document.getElementById("joystick"), stick=document.getElementById("stick");
+
+/* JOYSTICK */
+
+let joyX=0;
+let joyY=0;
+
+const joy=document.getElementById("joystick");
+const stick=document.getElementById("stick");
+
 function moveJoy(e){
-  const r=joy.getBoundingClientRect(), cx=r.left+r.width/2, cy=r.top+r.height/2;
-  const p=e.touches?e.touches[0]:e, dx=p.clientX-cx, dy=p.clientY-cy;
-  const len=Math.min(45,Math.hypot(dx,dy)), a=Math.atan2(dy,dx);
-  joyX=Math.cos(a)*len/45; joyY=Math.sin(a)*len/45;
-  stick.style.transform=`translate(${joyX*35}px,${joyY*35}px)`;
+
+  const r=joy.getBoundingClientRect();
+
+  const cx=r.left+r.width/2;
+  const cy=r.top+r.height/2;
+
+  const p=e.touches[0];
+
+  const dx=p.clientX-cx;
+  const dy=p.clientY-cy;
+
+  const len=Math.min(
+    45,
+    Math.hypot(dx,dy)
+  );
+
+  const a=Math.atan2(dy,dx);
+
+  joyX=Math.cos(a)*len/45;
+  joyY=Math.sin(a)*len/45;
+
+  stick.style.transform=
+    `translate(${joyX*35}px,${joyY*35}px)`;
 }
-joy.addEventListener("touchstart",e=>{e.preventDefault();moveJoy(e)}, {passive:false});
-joy.addEventListener("touchmove",e=>{e.preventDefault();moveJoy(e)}, {passive:false});
-joy.addEventListener("touchend",()=>{joyX=joyY=0;stick.style.transform=""});
-document.getElementById("jump").addEventListener("touchstart",e=>{
-  e.preventDefault(); if(player.onGround){player.vy=7.5;player.onGround=false;}
-},{passive:false});
+
+joy.addEventListener(
+  "touchstart",
+  e=>{
+    e.preventDefault();
+    moveJoy(e);
+  },
+  {passive:false}
+);
+
+joy.addEventListener(
+  "touchmove",
+  e=>{
+    e.preventDefault();
+    moveJoy(e);
+  },
+  {passive:false}
+);
+
+joy.addEventListener(
+  "touchend",
+  e=>{
+    joyX=0;
+    joyY=0;
+    stick.style.transform="";
+  },
+  {passive:false}
+);
+
+
+/* PULO */
+
+document.getElementById("jump").addEventListener(
+  "touchstart",
+  e=>{
+
+    e.preventDefault();
+
+    if(player.onGround){
+
+      player.vy=7.5;
+      player.onGround=false;
+    }
+
+  },
+  {passive:false}
+);
+
+
+/* CAMERA POR TOQUE */
+
+let cameraDistance=5.5;
+
+const target=new THREE.Vector3(
+  player.x,
+  player.y+1.2,
+  player.z
+);
+
+const camPos=new THREE.Vector3(
+  player.x,
+  player.y+1.2,
+  player.z+4.5
+);
+
+camera.position.copy(camPos);
+camera.lookAt(target);
+
+let cameraYaw=0;
+let cameraPitch=0.25;
+
+let touchStartX=0;
+let touchStartY=0;
+
+let lastPinchDistance=0;
+
+
+/* COMEÇO DO TOQUE */
+
+renderer.domElement.addEventListener(
+  "touchstart",
+  e=>{
+
+    if(e.touches.length===1){
+
+      touchStartX=e.touches[0].clientX;
+      touchStartY=e.touches[0].clientY;
+    }
+
+    if(e.touches.length===2){
+
+      const dx=
+        e.touches[0].clientX-
+        e.touches[1].clientX;
+
+      const dy=
+        e.touches[0].clientY-
+        e.touches[1].clientY;
+
+      lastPinchDistance=Math.hypot(dx,dy);
+    }
+
+  },
+  {passive:false}
+);
+
+
+/* MOVIMENTO DO TOQUE */
+
+renderer.domElement.addEventListener(
+  "touchmove",
+  e=>{
+
+    e.preventDefault();
+
+
+    /* UMA DEDO = GIRAR CÂMERA */
+
+    if(e.touches.length===1){
+
+      const x=e.touches[0].clientX;
+      const y=e.touches[0].clientY;
+
+      cameraYaw-=(x-touchStartX)*0.01;
+      cameraPitch-=(y-touchStartY)*0.006;
+
+      cameraPitch=Math.max(
+        -0.8,
+        Math.min(1.0,cameraPitch)
+      );
+
+      touchStartX=x;
+      touchStartY=y;
+    }
+
+
+    /* DOIS DEDOS = ZOOM */
+
+    if(e.touches.length===2){
+
+      const dx=
+        e.touches[0].clientX-
+        e.touches[1].clientX;
+
+      const dy=
+        e.touches[0].clientY-
+        e.touches[1].clientY;
+
+      const distance=Math.hypot(dx,dy);
+
+      if(lastPinchDistance){
+
+        cameraDistance-=
+          (distance-lastPinchDistance)*0.015;
+
+        cameraDistance=Math.max(
+          2.5,
+          Math.min(12,cameraDistance)
+        );
+      }
+
+      lastPinchDistance=distance;
+    }
+
+  },
+  {passive:false}
+);
+
+
+/* FIM DO TOQUE */
+
+renderer.domElement.addEventListener(
+  "touchend",
+  ()=>{
+
+    lastPinchDistance=0;
+
+  },
+  {passive:false}
+);
+
+
+/* ANIMAÇÃO */
 
 let last=performance.now();
-function animate(now){
-  requestAnimationFrame(animate);
-  const dt=Math.min(.033,(now-last)/1000); last=now;
-  const ix=joyX+(keys["d"]?1:0)-(keys["a"]?1:0);
-  const iz=joyY+(keys["s"]?1:0)-(keys["w"]?1:0);
-  const speed=5;
-  player.x+=ix*speed*dt; player.z+=iz*speed*dt;
-  player.x=Math.max(-17,Math.min(17,player.x)); player.z=Math.max(-17,Math.min(17,player.z));
-  player.vy-=18*dt; player.y+=player.vy*dt;
-  if(player.y<=0){player.y=0;player.vy=0;player.onGround=true;}
-  root.position.set(player.x,player.y,player.z);
-  if(vrm) vrm.scene.rotation.y=Math.atan2(ix,iz)||vrm.scene.rotation.y;
 
-  const target=new THREE.Vector3(player.x,player.y+1.2,player.z);
-  const camPos=new THREE.Vector3(player.x,player.y+4.2,player.z+6.5);
-  camera.position.lerp(camPos,1-Math.pow(.001,dt));
+function animate(now){
+
+  requestAnimationFrame(animate);
+
+  const dt=Math.min(
+    0.033,
+    (now-last)/1000
+  );
+
+  last=now;
+
+
+  /* MOVIMENTO */
+
+  const ix=
+    joyX+
+    (keys["d"]?1:0)-
+    (keys["a"]?1:0);
+
+  const iz=
+    joyY+
+    (keys["s"]?1:0)-
+    (keys["w"]?1:0);
+
+  const speed=5;
+
+
+  player.x+=ix*speed*dt;
+  player.z+=iz*speed*dt;
+
+
+  /* LIMITES DO MUNDO */
+
+  player.x=Math.max(
+    -17,
+    Math.min(17,player.x)
+  );
+
+  player.z=Math.max(
+    -17,
+    Math.min(17,player.z)
+  );
+
+
+  /* GRAVIDADE */
+
+  player.vy-=18*dt;
+
+  player.y+=player.vy*dt;
+
+
+  if(player.y<=0){
+
+    player.y=0;
+    player.vy=0;
+    player.onGround=true;
+  }
+
+
+  root.position.set(
+    player.x,
+    player.y,
+    player.z
+  );
+
+
+  /* DIREÇÃO DO PERSONAGEM */
+
+  if(vrm){
+
+    vrm.scene.rotation.y=
+      Math.atan2(ix,iz);
+  }
+
+
+  /* CÂMERA */
+
+  const target=new THREE.Vector3(
+    player.x,
+    player.y+1.2,
+    player.z
+  );
+
+
+  const camPos=new THREE.Vector3(
+    player.x,
+    player.y+1.2,
+    player.z+cameraDistance
+  );
+
+
+  /* ROTACIONA A POSIÇÃO DA CÂMERA */
+
+  const offset=new THREE.Vector3(
+    0,
+    0,
+    cameraDistance
+  );
+
+  offset.applyEuler(
+    new THREE.Euler(
+      cameraPitch,
+      cameraYaw,
+      0,
+      "YXZ"
+    )
+  );
+
+  camPos.copy(target).add(offset);
+
+
+  camera.position.lerp(
+    camPos,
+    1-Math.pow(0.001,dt)
+  );
+
   camera.lookAt(target);
-  if(vrm && vrm.update) vrm.update(dt);
-  renderer.render(scene,camera);
+
+
+  /* VRM */
+
+  if(vrm && vrm.update)
+    vrm.update(dt);
+
+
+  renderer.render(
+    scene,
+    camera
+  );
 }
+
+
+/* INICIA UMA ÚNICA VEZ */
+
 requestAnimationFrame(animate);
 
-addEventListener("resize",()=>{
- camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
- renderer.setSize(innerWidth,innerHeight);
-});
+
+/* REDIMENSIONAMENTO */
+
+addEventListener(
+  "resize",
+  ()=>{
+
+    camera.aspect=
+      innerWidth/innerHeight;
+
+    camera.updateProjectionMatrix();
+
+    renderer.setSize(
+      innerWidth,
+      innerHeight
+    );
+
+  }
+);
+
 </script>
+
 </body>
 </html>
