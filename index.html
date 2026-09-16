@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Meu Mundo 3D</title>
+<style>
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#87ceeb;font-family:Arial,sans-serif}
+#game{position:fixed;inset:0}
+#hint{position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:5;color:white;background:#0008;padding:8px 12px;border-radius:12px;font-size:13px}
+#joystick{position:fixed;left:22px;bottom:28px;width:125px;height:125px;border-radius:50%;background:#0003;border:2px solid #fff6;z-index:10;touch-action:none}
+#stick{position:absolute;left:37px;top:37px;width:51px;height:51px;border-radius:50%;background:#fff9}
+#jump{position:fixed;right:25px;bottom:35px;width:76px;height:76px;border:0;border-radius:50%;background:#fff9;font-weight:bold;z-index:10;touch-action:none}
+</style>
+</head>
+<body>
+<div id="game"></div>
+<div id="hint">Carregando mundo 3D...</div>
+<div id="joystick"><div id="stick"></div></div>
+<button id="jump">PULAR</button>
+
+<script type="importmap">
+{
+  "imports":{
+    "three":"https://cdn.jsdelivr.net/npm/three@0.176.0/build/three.module.js",
+    "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.176.0/examples/jsm/",
+    "@pixiv/three-vrm":"https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3.4.2/lib/three-vrm.module.js"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from "three";
+import {GLTFLoader} from "three/addons/loaders/GLTFLoader.js";
+import {VRMLoaderPlugin, VRMUtils} from "@pixiv/three-vrm";
+
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x87ceeb);
+scene.fog=new THREE.Fog(0x87ceeb,35,90);
+
+const camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,.05,200);
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true;
+document.getElementById("game").appendChild(renderer.domElement);
+
+scene.add(new THREE.HemisphereLight(0xbfe9ff,0x6b5b3e,2.2));
+const sun=new THREE.DirectionalLight(0xffffff,3);
+sun.position.set(20,35,15); sun.castShadow=true; scene.add(sun);
+
+const blockGeo=new THREE.BoxGeometry(1,1,1);
+function block(x,y,z,color){
+  const m=new THREE.MeshStandardMaterial({color});
+  const b=new THREE.Mesh(blockGeo,m);
+  b.position.set(x,y,z); b.castShadow=true; b.receiveShadow=true; scene.add(b);
+}
+const colors=[0x58a83b,0x65b83f,0x4b9634];
+for(let x=-18;x<=18;x++) for(let z=-18;z<=18;z++){
+  block(x,-.5,z,colors[(x*x+z*z)%3]);
+}
+for(let x=-10;x<=10;x+=2) for(let z=-10;z<=10;z+=2){
+  if(Math.random()>.48){
+    block(x,0.5,z,0x8b5a2b); block(x,1.5,z,0x8b5a2b);
+    block(x,2.5,z,0x3d8f32); block(x+1,2.5,z,0x3d8f32);
+    block(x,2.5,z+1,0x3d8f32); block(x+1,2.5,z+1,0x3d8f32);
+  }
+}
+// Small village
+for(let x=-7;x<=-3;x++) for(let z=6;z<=10;z++) block(x,.5,z,0xcaa46a);
+for(let x=-7;x<=-3;x++) { block(x,3.5,6,0x9b3f32); block(x,3.5,10,0x9b3f32); }
+for(let z=6;z<=10;z++) { block(-7,3.5,z,0x9b3f32); block(-3,3.5,z,0x9b3f32); }
+
+let vrm=null, root=new THREE.Group();
+scene.add(root);
+
+const loader=new GLTFLoader();
+loader.register(parser=>new VRMLoaderPlugin(parser));
+loader.load("./character.vrm",gltf=>{
+  vrm=gltf.userData.vrm;
+  VRMUtils.removeUnnecessaryVertices(gltf.scene);
+  VRMUtils.combineSkeletons(gltf.scene);
+  vrm.scene.rotation.y=Math.PI;
+  vrm.scene.scale.setScalar(1.15);
+  root.add(vrm.scene);
+  document.getElementById("hint").textContent="Mundo carregado • use o controle para andar";
+  setTimeout(()=>document.getElementById("hint").style.display="none",2200);
+},undefined,e=>{
+  console.error(e);
+  document.getElementById("hint").textContent="Erro ao carregar o personagem VRM.";
+});
+
+const player={x:0,y:0,z:0,vy:0,onGround:true};
+const keys={};
+addEventListener("keydown",e=>keys[e.key.toLowerCase()]=true);
+addEventListener("keyup",e=>keys[e.key.toLowerCase()]=false);
+
+let joyX=0,joyY=0;
+const joy=document.getElementById("joystick"), stick=document.getElementById("stick");
+function moveJoy(e){
+  const r=joy.getBoundingClientRect(), cx=r.left+r.width/2, cy=r.top+r.height/2;
+  const p=e.touches?e.touches[0]:e, dx=p.clientX-cx, dy=p.clientY-cy;
+  const len=Math.min(45,Math.hypot(dx,dy)), a=Math.atan2(dy,dx);
+  joyX=Math.cos(a)*len/45; joyY=Math.sin(a)*len/45;
+  stick.style.transform=`translate(${joyX*35}px,${joyY*35}px)`;
+}
+joy.addEventListener("touchstart",e=>{e.preventDefault();moveJoy(e)}, {passive:false});
+joy.addEventListener("touchmove",e=>{e.preventDefault();moveJoy(e)}, {passive:false});
+joy.addEventListener("touchend",()=>{joyX=joyY=0;stick.style.transform=""});
+document.getElementById("jump").addEventListener("touchstart",e=>{
+  e.preventDefault(); if(player.onGround){player.vy=7.5;player.onGround=false;}
+},{passive:false});
+
+let last=performance.now();
+function animate(now){
+  requestAnimationFrame(animate);
+  const dt=Math.min(.033,(now-last)/1000); last=now;
+  const ix=joyX+(keys["d"]?1:0)-(keys["a"]?1:0);
+  const iz=joyY+(keys["s"]?1:0)-(keys["w"]?1:0);
+  const speed=5;
+  player.x+=ix*speed*dt; player.z+=iz*speed*dt;
+  player.x=Math.max(-17,Math.min(17,player.x)); player.z=Math.max(-17,Math.min(17,player.z));
+  player.vy-=18*dt; player.y+=player.vy*dt;
+  if(player.y<=0){player.y=0;player.vy=0;player.onGround=true;}
+  root.position.set(player.x,player.y,player.z);
+  if(vrm) vrm.scene.rotation.y=Math.atan2(ix,iz)||vrm.scene.rotation.y;
+
+  const target=new THREE.Vector3(player.x,player.y+1.2,player.z);
+  const camPos=new THREE.Vector3(player.x,player.y+4.2,player.z+6.5);
+  camera.position.lerp(camPos,1-Math.pow(.001,dt));
+  camera.lookAt(target);
+  if(vrm && vrm.update) vrm.update(dt);
+  renderer.render(scene,camera);
+}
+requestAnimationFrame(animate);
+
+addEventListener("resize",()=>{
+ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
+ renderer.setSize(innerWidth,innerHeight);
+});
+</script>
+</body>
+</html>
